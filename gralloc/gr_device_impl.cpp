@@ -391,7 +391,7 @@ gralloc1_error_t GrallocImpl::GetConsumerUsage(gralloc1_device_t *device, buffer
 
   gralloc1_error_t status = CheckDeviceAndHandle(device, buffer);
   if (status == GRALLOC1_ERROR_NONE) {
-    *outUsage = static_cast<gralloc1_consumer_usage_t>(PRIV_HANDLE_CONST(buffer)->GetUsage());
+    *outUsage = PRIV_HANDLE_CONST(buffer)->GetConsumerUsage();
   }
 
   return status;
@@ -449,7 +449,8 @@ gralloc1_error_t GrallocImpl::GetProducerUsage(gralloc1_device_t *device, buffer
 
   gralloc1_error_t status = CheckDeviceAndHandle(device, buffer);
   if (status == GRALLOC1_ERROR_NONE) {
-    *outUsage = static_cast<gralloc1_producer_usage_t>(PRIV_HANDLE_CONST(buffer)->GetUsage());
+    const private_handle_t *hnd = PRIV_HANDLE_CONST(buffer);
+    *outUsage = hnd->GetProducerUsage();
   }
 
   return status;

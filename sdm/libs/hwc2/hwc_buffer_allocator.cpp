@@ -264,7 +264,7 @@ void HWCBufferAllocator::GetAlignedWidthAndHeight(int width, int height, int for
     usage |= BufferUsage::COMPOSER_CLIENT_TARGET;
   }
   if (alloc_type & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC) {
-    usage |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
+    producer_usage = GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   }
   uint32_t aligned_w = UINT(width);
   uint32_t aligned_h = UINT(height);

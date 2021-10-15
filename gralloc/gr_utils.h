@@ -49,7 +49,6 @@
 
 #define INT(exp) static_cast<int>(exp)
 #define UINT(exp) static_cast<unsigned int>(exp)
-
 using android::hardware::graphics::common::V1_1::BufferUsage;
 
 namespace gralloc {

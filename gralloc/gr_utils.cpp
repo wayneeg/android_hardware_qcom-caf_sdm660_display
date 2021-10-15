@@ -558,12 +558,10 @@ int GetYUVPlaneInfo(const private_handle_t *hnd, struct android_ycbcr ycbcr[2]) 
   uint32_t width = UINT(hnd->width);
   uint32_t height = UINT(hnd->height);
   int format = hnd->format;
-  uint64_t usage = hnd->usage;
-  int32_t interlaced = 0;
-  int plane_count = 0;
-  int unaligned_width = INT(hnd->unaligned_width);
-  int unaligned_height = INT(hnd->unaligned_height);
-  BufferInfo info(unaligned_width, unaligned_height, format, usage);
+  gralloc1_producer_usage_t prod_usage = hnd->GetProducerUsage();
+  gralloc1_consumer_usage_t cons_usage = hnd->GetConsumerUsage();
+  unsigned int ystride, cstride;
+  bool interlaced = false;
 
   memset(ycbcr->reserved, 0, sizeof(ycbcr->reserved));
 

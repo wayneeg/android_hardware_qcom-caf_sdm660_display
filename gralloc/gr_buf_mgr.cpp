@@ -711,11 +711,34 @@ BufferManager::~BufferManager() {
   }
 }
 
-void BufferManager::SetGrallocDebugProperties(gralloc::GrallocProperties props) {
-  allocator_->SetProperties(props);
+  GetAlignedWidthAndHeight(info, &alignedw, &alignedh);
+
+  // create new handle from input reference handle and given descriptor
+  int flags = GetHandleFlags(descriptor.GetFormat(), descriptor.GetProducerUsage(),
+                             descriptor.GetConsumerUsage());
+  int buffer_type = GetBufferType(descriptor.GetFormat());
+
+  // Duplicate the fds
+  // TODO(user): Not sure what to do for fb_id. Use duped fd and new dimensions?
+  private_handle_t *out_hnd = new private_handle_t(dup(input->fd),
+                                                   dup(input->fd_metadata),
+                                                   flags,
+                                                   INT(alignedw),
+                                                   INT(alignedh),
+                                                   descriptor.GetWidth(),
+                                                   descriptor.GetHeight(),
+                                                   descriptor.GetFormat(),
+                                                   buffer_type,
+                                                   input->size,
+                                                   descriptor.GetProducerUsage(),
+                                                   descriptor.GetConsumerUsage());
+  out_hnd->id = ++next_id_;
+  // TODO(user): Base address of shared handle and ion handles
+  RegisterHandleLocked(out_hnd, -1, -1);
+  *outbuffer = out_hnd;
 }
 
-Error BufferManager::FreeBuffer(std::shared_ptr<Buffer> buf) {
+gralloc1_error_t BufferManager::FreeBuffer(std::shared_ptr<Buffer> buf) {
   auto hnd = buf->handle;
   ALOGD_IF(DEBUG, "FreeBuffer handle:%p", hnd);
 
@@ -1058,9 +1081,18 @@ Error BufferManager::AllocateBuffer(const BufferDescriptor &descriptor, buffer_h
   flags |= data.alloc_type;
 
   // Create handle
-  private_handle_t *hnd = new private_handle_t(
-      data.fd, e_data.fd, INT(flags), INT(alignedw), INT(alignedh), descriptor.GetWidth(),
-      descriptor.GetHeight(), format, buffer_type, data.size, usage);
+  private_handle_t *hnd = new private_handle_t(data.fd,
+                                               e_data.fd,
+                                               flags,
+                                               INT(alignedw),
+                                               INT(alignedh),
+                                               descriptor.GetWidth(),
+                                               descriptor.GetHeight(),
+                                               format,
+                                               buffer_type,
+                                               data.size,
+                                               prod_usage,
+                                               cons_usage);
 
   hnd->id = ++next_id_;
   hnd->base = 0;
@@ -1436,13 +1468,32 @@ Error BufferManager::SetMetadata(private_handle_t *handle, int64_t metadatatype_
 
   auto metadata = reinterpret_cast<MetaData_t *>(handle->base_metadata);
 
-#ifdef METADATA_V2
-  // By default, set these to true
-  // Reset to false for special cases below
-  if (IS_VENDOR_METADATA_TYPE(metadatatype_value)) {
-    metadata->isVendorMetadataSet[GET_VENDOR_METADATA_STATUS_INDEX(metadatatype_value)] = true;
-  } else if (GET_STANDARD_METADATA_STATUS_INDEX(metadatatype_value) < METADATA_SET_SIZE) {
-    metadata->isStandardMetadataSet[GET_STANDARD_METADATA_STATUS_INDEX(metadatatype_value)] = true;
+  layout->planes[2].top_left = static_cast<uint8_t *>(ycbcr.cr);
+  layout->planes[2].component = FLEX_COMPONENT_Cr;
+  layout->planes[2].h_increment = static_cast<int32_t>(ycbcr.chroma_step);
+  layout->planes[2].v_increment = static_cast<int32_t>(ycbcr.cstride);
+  return GRALLOC1_ERROR_NONE;
+}
+
+gralloc1_error_t BufferManager::Dump(std::ostringstream *os) {
+  std::lock_guard<std::mutex> buffer_lock(buffer_lock_);
+  for (auto it : handles_map_) {
+    auto buf = it.second;
+    auto hnd = buf->handle;
+    *os << "handle id: " << std::setw(4) << hnd->id;
+    *os << " fd: "       << std::setw(3) << hnd->fd;
+    *os << " fd_meta: "  << std::setw(3) << hnd->fd_metadata;
+    *os << " wxh: "      << std::setw(4) << hnd->width <<" x " << std::setw(4) <<  hnd->height;
+    *os << " uwxuh: "    << std::setw(4) << hnd->unaligned_width << " x ";
+    *os << std::setw(4)  <<  hnd->unaligned_height;
+    *os << " size: "     << std::setw(9) << hnd->size;
+    *os << std::hex << std::setfill('0');
+    *os << " priv_flags: " << "0x" << std::setw(8) << hnd->flags;
+    *os << " prod_usage: " << "0x" << std::setw(8) << hnd->producer_usage;
+    *os << " cons_usage: " << "0x" << std::setw(8) << hnd->consumer_usage;
+    // TODO(user): get format string from qdutils
+    *os << " format: "     << "0x" << std::setw(8) << hnd->format;
+    *os << std::dec  << std::setfill(' ') << std::endl;
   }
 #endif
 
